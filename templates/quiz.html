@@ -11,7 +11,13 @@
 
 <section class="quiz-hero paper-card">
   <h1>📝 {{ ch.icon }} {{ ch.title }} · 常考题测验</h1>
-  <p class="quiz-rule">共 <strong>{{ qz.questions|length }}</strong> 道选择题，答对 <strong>{{ pass_line }}</strong> 道及以上即判定 <span class="pass-tag">学会本章</span>。</p>
+  <div class="paper-tabs" role="tablist">
+    {% for p in papers %}
+    <a class="paper-tab{% if loop.index0 == paper_idx %} active{% endif %}"
+       href="/chapter/{{ ch.id }}/quiz?p={{ loop.index0 }}">{{ p.name }}</a>
+    {% endfor %}
+  </div>
+  <p class="quiz-rule">当前为 <strong>{{ papers[paper_idx].name }}</strong>，共 <strong>{{ qz.questions|length }}</strong> 道选择题，答对 <strong>{{ pass_line }}</strong> 道及以上即判定 <span class="pass-tag">学会本章</span>{% if papers|length > 1 %}。交卷后自动轮换到另一卷，常换着练不重样{% endif %}。</p>
   <p class="quiz-tip">💡 应试技巧：{{ qz.tip }}</p>
 
   <details class="focus-card">
@@ -49,7 +55,11 @@
   <h2 id="resultTitle"></h2>
   <p id="resultDetail"></p>
   <p>
+    {% if papers|length > 1 %}
+    <a class="btn-done" id="btnRetry" href="/chapter/{{ ch.id }}/quiz?p={{ (paper_idx + 1) % papers|length }}">🔁 换卷再战（{{ papers[(paper_idx + 1) % papers|length].name }}）</a>
+    {% else %}
     <button type="button" class="btn-done" id="btnRetry">🔁 重新挑战</button>
+    {% endif %}
     <a class="btn-done btn-back" href="/chapter/{{ ch.id }}">↩ 回到讲义复习</a>
   </p>
 </section>
@@ -128,7 +138,10 @@
     result.scrollIntoView({ behavior: 'smooth' });
   });
 
-  document.getElementById('btnRetry').addEventListener('click', function () { window.location.reload(); });
+  var btnRetry = document.getElementById('btnRetry');
+  if (btnRetry.tagName === 'BUTTON') {
+    btnRetry.addEventListener('click', function () { window.location.reload(); });
+  }
 })();
 </script>
 {% endblock %}

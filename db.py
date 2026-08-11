@@ -29,7 +29,7 @@ def close_db(_e=None):
 
 
 def init_db():
-    """建表（幂等）。"""
+    """建表（幂等），旧库自动补列（attempts / last_chapter）。"""
     con = sqlite3.connect(DB_PATH)
     con.executescript(
         """
@@ -37,7 +37,8 @@ def init_db():
             id            INTEGER PRIMARY KEY AUTOINCREMENT,
             username      TEXT NOT NULL UNIQUE,
             password_hash TEXT NOT NULL,
-            created_at    TEXT NOT NULL
+            created_at    TEXT NOT NULL,
+            last_chapter  TEXT
         );
         CREATE TABLE IF NOT EXISTS progress (
             user_id    INTEGER NOT NULL REFERENCES users(id),
@@ -45,11 +46,19 @@ def init_db():
             correct    INTEGER NOT NULL,
             total      INTEGER NOT NULL,
             pass       INTEGER NOT NULL,
+            attempts   INTEGER NOT NULL DEFAULT 0,
             updated_at TEXT NOT NULL,
             PRIMARY KEY (user_id, chapter_id)
         );
         """
     )
+    # 旧版本建的表缺新列，按需补齐
+    cols_user = {r[1] for r in con.execute("PRAGMA table_info(users)")}
+    if "last_chapter" not in cols_user:
+        con.execute("ALTER TABLE users ADD COLUMN last_chapter TEXT")
+    cols_prog = {r[1] for r in con.execute("PRAGMA table_info(progress)")}
+    if "attempts" not in cols_prog:
+        con.execute("ALTER TABLE progress ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0")
     con.commit()
     con.close()
 
@@ -72,6 +81,21 @@ def create_user(username, password_hash):
     return cur.lastrowid
 
 
+def set_last_chapter(user_id, chapter_id):
+    """记录用户最近学习的章节（首页“继续学习”用）。"""
+    db = get_db()
+    db.execute("UPDATE users SET last_chapter = ? WHERE id = ?",
+               (chapter_id, user_id))
+    db.commit()
+
+
+def get_last_chapter(user_id):
+    row = get_db().execute(
+        "SELECT last_chapter FROM users WHERE id = ?", (user_id,)
+    ).fetchone()
+    return row["last_chapter"] if row else None
+
+
 # ---------- 进度 ----------
 
 def _row_to_dict(row):
@@ -79,6 +103,7 @@ def _row_to_dict(row):
         "correct": row["correct"],
         "total": row["total"],
         "pass": bool(row["pass"]),
+        "attempts": row["attempts"],
     }
 
 
@@ -99,21 +124,31 @@ def get_all_progress(user_id):
 
 
 def upsert_progress(user_id, chapter_id, correct, total, passed):
-    """写入成绩，保留历史最好成绩。返回最终记录。"""
+    """写入成绩，保留历史最好成绩；交卷次数 attempts 每次 +1。返回最终记录。"""
     db = get_db()
     old = get_progress(user_id, chapter_id)
-    if old and old["correct"] >= correct:
-        return old
+    now = datetime.now().isoformat(timespec="seconds")
+    if old is None:
+        db.execute(
+            """INSERT INTO progress
+               (user_id, chapter_id, correct, total, pass, attempts, updated_at)
+               VALUES (?, ?, ?, ?, ?, 1, ?)""",
+            (user_id, chapter_id, correct, total, int(passed), now),
+        )
+        db.commit()
+        return get_progress(user_id, chapter_id)
+    # 已有记录：尝试次数 +1；成绩更好才覆盖
+    if old["correct"] >= correct:
+        db.execute("UPDATE progress SET attempts = attempts + 1, updated_at = ? "
+                   "WHERE user_id = ? AND chapter_id = ?",
+                   (now, user_id, chapter_id))
+        db.commit()
+        return get_progress(user_id, chapter_id)
     db.execute(
-        """INSERT INTO progress (user_id, chapter_id, correct, total, pass, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?)
-           ON CONFLICT(user_id, chapter_id) DO UPDATE SET
-             correct = excluded.correct,
-             total = excluded.total,
-             pass = excluded.pass,
-             updated_at = excluded.updated_at""",
-        (user_id, chapter_id, correct, total, int(passed),
-         datetime.now().isoformat(timespec="seconds")),
+        """UPDATE progress SET correct = ?, total = ?, pass = ?,
+               attempts = attempts + 1, updated_at = ?
+           WHERE user_id = ? AND chapter_id = ?""",
+        (correct, total, int(passed), now, user_id, chapter_id),
     )
     db.commit()
     return get_progress(user_id, chapter_id)

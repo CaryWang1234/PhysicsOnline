@@ -9,6 +9,20 @@
     覆盖沪科版（五四学制）八年级上册 + 下册全部 <strong>{{ total }}</strong> 个章节，免登录，随时学！
   </p>
 
+  {% if last_ch %}
+  <a class="continue-card" id="continueCard" href="/chapter/{{ last_ch.id }}">
+    <span class="continue-badge">▶ 继续学习</span>
+    <span class="continue-title">{{ last_ch.icon }} {{ last_ch.label if last_ch.label is defined else '第 ' ~ last_ch.num ~ ' 章' }} · {{ last_ch.title }}</span>
+    <span class="arrow">→</span>
+  </a>
+  {% else %}
+  <a class="continue-card" id="continueCard" href="#" hidden>
+    <span class="continue-badge">▶ 继续学习</span>
+    <span class="continue-title" id="continueTitle"></span>
+    <span class="arrow">→</span>
+  </a>
+  {% endif %}
+
   <div class="progress-block">
     <div class="progress-label">
       <span>📈 我的学会进度</span>
@@ -75,6 +89,21 @@
       if (bar) bar.style.width = Math.round(n / vIds.length * 100) + '%';
       if (text) text.textContent = '已学会 ' + n + ' / ' + vIds.length + ' 章';
     });
+
+    // 游客的“继续学习”：从 localStorage 读取最近访问章节（登录用户由服务端渲染）
+    if (!window.CURRENT_USER) {
+      var CH_INDEX = {
+        {% for c in chapters_all %}'{{ c.id }}': { t: '{{ c.icon }} {% if c.label is defined %}{{ c.label }}{% else %}第 {{ c.num }} 章{% endif %} · {{ c.title }}' }{% if not loop.last %},{% endif %}
+        {% endfor %}
+      };
+      var last = localStorage.getItem('po_last_chapter_v1');
+      var card = document.getElementById('continueCard');
+      if (last && CH_INDEX[last] && card) {
+        card.href = '/chapter/' + last;
+        document.getElementById('continueTitle').textContent = CH_INDEX[last].t;
+        card.hidden = false;
+      }
+    }
   })();
 </script>
 {% endblock %}

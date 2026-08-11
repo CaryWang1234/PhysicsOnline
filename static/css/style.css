@@ -18,7 +18,7 @@
   --radius: 18px;
 }
 
-* { margin: 0; padding: 0; box-sizing: border-box; }
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
 html { scroll-behavior: smooth; }
 
@@ -294,6 +294,70 @@ body {
 .quiz-score.score-fail { background: #fbeae5; color: var(--danger); }
 .chapter-state { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 
+/* ---------- 首页“继续学习”卡 ---------- */
+.continue-card {
+  display: flex; align-items: center; gap: 14px;
+  margin: 20px auto 4px; max-width: 560px;
+  background: linear-gradient(90deg, #eaf4e4, #f6faf2);
+  border: 1.5px solid #bcd9bd; border-radius: 14px;
+  padding: 12px 18px; text-decoration: none; color: var(--ink);
+  transition: transform .2s, box-shadow .2s;
+}
+.continue-card:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(90, 110, 90, .16); }
+.continue-badge {
+  background: var(--green-deep); color: #fff; font-size: 13px; font-weight: 700;
+  border-radius: 999px; padding: 3px 12px; white-space: nowrap; flex-shrink: 0;
+}
+.continue-title { flex: 1; font-weight: 700; font-size: 16px; text-align: left; }
+.continue-card .arrow { font-size: 20px; }
+
+/* ---------- 测验页卷切换标签 ---------- */
+.paper-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 12px; }
+.paper-tab {
+  text-decoration: none; font-size: 14px; font-weight: 700;
+  padding: 6px 16px; border-radius: 999px;
+  background: var(--paper-green); color: var(--ink-soft);
+  border: 1.5px solid transparent; transition: all .2s;
+}
+.paper-tab:hover { color: var(--green-deep); }
+.paper-tab.active { background: var(--green-deep); color: #fff; }
+
+/* ---------- 讲义详解与例题精讲 ---------- */
+.block-detail {
+  margin-top: 12px; padding: 10px 16px; font-size: 15px; line-height: 1.85;
+  background: #f2f7ee; border-left: 4px solid var(--green); border-radius: 8px;
+}
+.example-card { margin-bottom: 18px; }
+.example-card h3 { font-size: 18px; margin-bottom: 10px; display: flex; gap: 10px; align-items: baseline; }
+.example-steps summary {
+  cursor: pointer; font-weight: 700; color: var(--green-deep); font-size: 15px;
+  background: var(--paper-green); border-radius: 10px; padding: 8px 14px;
+}
+.example-body { margin-top: 10px; padding: 4px 8px; }
+.example-step { font-size: 15.5px; margin-bottom: 6px; padding-left: 4px; }
+.example-answer {
+  margin-top: 10px; padding: 8px 14px; border-radius: 10px;
+  background: #e2f0e2; color: var(--green-deep); font-weight: 700; font-size: 15.5px;
+}
+
+/* ---------- 多动画卡片标题 ---------- */
+.lab .anim-card { margin-bottom: 18px; }
+.anim-title { color: #ffe9b0; font-size: 17px; margin-bottom: 6px; }
+
+/* ---------- 动画反馈与控件状态 ---------- */
+.anim-stage .anim-fb { flex: 1 1 100%; font-size: 14px; min-height: 20px; }
+.anim-stage .anim-fb.is-right { color: #b9e8b3; font-weight: 700; }
+.anim-stage .anim-fb.is-wrong { color: #ffb4a2; font-weight: 700; }
+.anim-stage button.is-on { background: #f2b356; color: #3b4a3f; font-weight: 700; }
+.anim-stage input[type="number"] {
+  background: #fffdf7; border: none; border-radius: 8px;
+  padding: 6px 10px; font-size: 16px; font-family: inherit; color: var(--ink);
+}
+.anim-stage .anim-sliders { display: flex; flex-wrap: wrap; gap: 6px 18px; width: 100%; }
+.anim-stage .slider-row { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.anim-stage .slider-row input[type="range"] { width: 110px; }
+.anim-stage .tb-note { flex: 1 1 100%; font-size: 12.5px; color: #a9c4ae; }
+
 /* ---------- 登录 / 注册页 ---------- */
 .auth-card { max-width: 460px; margin: 30px auto; padding: 34px 36px; }
 .auth-card h1 { font-size: 26px; margin-bottom: 8px; }
@@ -323,13 +387,90 @@ body {
 }
 .nav-reg { background: var(--green); color: #fff !important; font-weight: 700; }
 
-/* ---------- 响应式 ---------- */
+/* ---------- 响应式：平板 ---------- */
+@media (max-width: 900px) {
+  .exam-grid { grid-template-columns: 1fr; }
+}
+
+/* ---------- 响应式：手机 ---------- */
 @media (max-width: 720px) {
+  body { font-size: 16px; }
+  .container { width: 94%; }
+  .page-main { padding: 18px 0 44px; }
+
+  /* 顶栏：品牌行 + 导航行两行排列 */
+  .header-inner { padding: 10px 0; }
+  .brand-sub { display: none; }
+  .brand-name { font-size: 19px; }
+  .top-nav { width: 100%; justify-content: flex-start; }
+  .top-nav a { padding: 7px 12px; font-size: 14px; }
+
+  /* 卡片内边距收窄 */
+  .paper-card { padding: 18px 16px; border-radius: 14px; }
+  .hero { padding: 26px 16px; }
+  .hero-desc { font-size: 15px; }
+  .continue-card { padding: 10px 14px; gap: 10px; }
+  .continue-title { font-size: 14.5px; }
+
   .volume-grid, .how-list { grid-template-columns: 1fr; }
-  .chapter-hero { flex-direction: column; text-align: center; }
-  .chapter-nav { flex-direction: column; }
-  .nav-btn { max-width: 100%; }
-  .nav-btn.next { align-items: flex-start; text-align: left; }
-  .anim-stage { height: 380px; }
+  .volume-card { padding: 18px 16px; }
+  .volume-icon { font-size: 42px; }
+  .volume-info h2 { font-size: 20px; }
+
+  /* 分册页章节卡 */
+  .chapter-card { padding: 14px 16px; gap: 12px; }
+  .chapter-icon { font-size: 32px; }
+  .chapter-info h2 { font-size: 17px; }
+
+  /* 章节详情 */
+  .chapter-hero { flex-direction: column; text-align: center; padding: 22px 16px; gap: 10px; }
+  .chapter-hero-icon { font-size: 44px; }
+  .chapter-hero h1 { font-size: 24px; }
+  .section-title { font-size: 20px; margin: 26px 0 12px; }
+  .block-card h3, .example-card h3 { font-size: 17px; }
+  .block-detail, .example-step { font-size: 14.5px; }
+
+  /* 动画：高度与控件触控友好 */
+  .anim-card { padding: 12px; border-width: 4px; }
+  .anim-stage { height: 400px; }
+  .anim-stage .anim-ui { gap: 8px; padding: 8px 10px; font-size: 13px; }
+  .anim-stage button, .anim-stage select { padding: 9px 13px; font-size: 13.5px; }
+  .anim-stage input[type="range"] { width: 120px; }
+  .anim-stage .chip { font-size: 12px; padding: 3px 9px; }
+  .anim-stage .slider-row input[type="range"] { width: 90px; }
+
   .exam-grid, .quiz-options { grid-template-columns: 1fr; }
+
+  /* 测验页 */
+  .quiz-hero h1 { font-size: 21px; }
+  .quiz-rule { font-size: 14.5px; }
+  .quiz-item h3 { font-size: 16px; }
+  .quiz-opt { padding: 10px 12px; font-size: 15px; }   /* ≥ 40px 触控高度 */
+  .quiz-opt input { width: 18px; height: 18px; }
+  .quiz-actions { margin: 20px 0; }
+  .btn-done { width: 100%; padding: 13px 18px; font-size: 16px; text-align: center; }
+  .quiz-result .btn-done { margin: 10px 0 0; }
+  .paper-tabs { margin: 8px 0 10px; }
+  .paper-tab { font-size: 13px; padding: 7px 14px; }
+
+  /* 章节导航 */
+  .chapter-nav { flex-direction: column; gap: 12px; }
+  .nav-btn { max-width: 100%; padding: 14px 18px; }
+  .nav-btn.next { align-items: flex-start; text-align: left; }
+  .nav-name { font-size: 16px; }
+
+  /* 登录注册 */
+  .auth-card { padding: 24px 20px; margin: 18px auto; }
+  .auth-form input { font-size: 16px; }   /* 防 iOS 输入放大 */
+
+  .quiz-status { font-size: 13.5px; }
+  .site-footer { padding: 18px 0; font-size: 13px; }
+}
+
+/* ---------- 响应式：小屏手机 ---------- */
+@media (max-width: 380px) {
+  .brand-sub { display: none; }
+  .hero-title { font-size: 22px; }
+  .anim-stage { height: 360px; }
+  .continue-title { font-size: 13px; }
 }

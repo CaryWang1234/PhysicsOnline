@@ -19,7 +19,7 @@
     <div class="chapter-info">
       <h2>{% if c.label %}{{ c.label }}{% else %}第{{ ['一','二','三','四','五','六','七','八','九','十','十一','十二'][c.num - 1] }}章{% endif %} · {{ c.title }}</h2>
       <p>{{ c.intro }}</p>
-      <p class="chapter-meta">📝 {{ c.blocks|length }} 个知识块 · 🧪 {{ c.animation.title }}</p>
+      <p class="chapter-meta">📝 {{ c.blocks|length }} 个知识块 · 🧪 {{ c.animations|length }} 个互动实验{% if c.examples %} · ✏️ {{ c.examples|length }} 道例题{% endif %}</p>
     </div>
     <div class="chapter-state">
       <span class="quiz-score" data-quiz-score="{{ c.id }}" hidden></span>

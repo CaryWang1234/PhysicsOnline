@@ -28,17 +28,42 @@
     {% if block.tip %}
     <p class="tip-box">💡 {{ block.tip }}</p>
     {% endif %}
+    {% if block.detail %}
+    <div class="block-detail">🔍 <strong>详解：</strong>{{ block.detail }}</div>
+    {% endif %}
   </article>
   {% endfor %}
 </section>
 
+<!-- ①.5 例题精讲 -->
+{% if ch.examples %}
+<section class="examples">
+  <h2 class="section-title">✏️ 例题精讲 · 一步一步学解题</h2>
+  {% for ex in ch.examples %}
+  <article class="example-card paper-card">
+    <h3><span class="block-no">例{{ loop.index }}</span>{{ ex.q }}</h3>
+    <details class="example-steps">
+      <summary>💬 点击查看解题步骤</summary>
+      <div class="example-body">
+        {% for s in ex.steps %}<p class="example-step">{{ s }}</p>{% endfor %}
+        <p class="example-answer">✅ {{ ex.a }}</p>
+      </div>
+    </details>
+  </article>
+  {% endfor %}
+</section>
+{% endif %}
+
 <!-- ② 实验模拟动画 -->
 <section class="lab">
-  <h2 class="section-title">🧪 实验模拟 · {{ ch.animation.title }}</h2>
+  <h2 class="section-title">🧪 实验模拟 · {{ ch.animations|length }} 个互动实验</h2>
+  {% for a in ch.animations %}
   <div class="anim-card">
-    <p class="anim-hint">👉 {{ ch.animation.hint }}</p>
-    <div class="anim-stage" id="animStage" data-anim="{{ ch.animation.key }}"></div>
+    <h3 class="anim-title">{{ a.title }}</h3>
+    <p class="anim-hint">👉 {{ a.hint }}</p>
+    <div class="anim-stage" data-anim="{{ a.key }}" data-meta='{{ a|tojson }}'></div>
   </div>
+  {% endfor %}
 </section>
 
 <!-- ③ 考试辅助：考点速记 + 应试技巧 -->
@@ -55,7 +80,7 @@
     <div class="exam-card paper-card">
       <h3>💡 应试技巧</h3>
       <p class="tip-box">{{ quiz_tip }}</p>
-      <p class="exam-note">共 {{ total_q }} 道常考题，答对 <strong>8 道及以上</strong>即判定学会本章。</p>
+      <p class="exam-note">共 {{ total_q }} 道常考题，答对 <strong>8 道及以上</strong>即判定学会本章{% if paper_count > 1 %}。已备 <strong>{{ paper_count }}</strong> 套题库，交卷自动轮换{% endif %}。</p>
     </div>
     {% endif %}
   </div>
@@ -70,7 +95,7 @@
     </ul>
     {% if has_quiz %}
     <div class="mastery-box">
-      <a class="btn-done btn-quiz" href="/chapter/{{ ch.id }}/quiz">📝 挑战常考题测验（{{ total_q }} 题）</a>
+      <a class="btn-done btn-quiz" href="/chapter/{{ ch.id }}/quiz">📝 挑战常考题测验（{{ total_q }} 题{% if paper_count > 1 %} · {{ paper_count }} 套轮换{% endif %}）</a>
       <span class="quiz-status" id="quizStatus"></span>
     </div>
     {% endif %}
@@ -98,11 +123,22 @@
 {% endblock %}
 
 {% block scripts %}
-<script>window.AnimMeta = {{ ch.animation|tojson }};</script>
 <script src="{{ url_for('static', filename='js/anim_loader.js') }}"></script>
 <script>
   (function () {
     var cid = '{{ ch.id }}';
+
+    // 记录最近学习章节：登录用户写服务端，游客写 localStorage（首页“继续学习”用）
+    if (window.CURRENT_USER) {
+      fetch('/api/visit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cid: cid })
+      }).catch(function () {});
+    } else {
+      try { localStorage.setItem('po_last_chapter_v1', cid); } catch (e) {}
+    }
+
     var st = document.getElementById('quizStatus');
     if (!st) return;
     // 登录用户优先用服务端成绩，游客用 localStorage

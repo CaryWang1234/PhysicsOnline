@@ -9,6 +9,7 @@ import db
 from data.chapters_8a import CHAPTERS_8A
 from data.chapters_8b import CHAPTERS_8B
 from data.quiz import QUIZZES
+from data.quiz_b import QUIZZES_B
 
 app = Flask(__name__)
 # 本地教学站点用固定密钥即可；如需部署可改用环境变量
@@ -23,6 +24,15 @@ VOLUMES = [
 ]
 ALL_CHAPTERS = CHAPTERS_8A + CHAPTERS_8B
 CHAPTER_BY_ID = {c["id"]: c for c in ALL_CHAPTERS}
+
+# 多套题库：每章 A 卷（基础巩固）+ B 卷（实战拔高），按交卷次数轮换
+PAPERS = {}
+for _cid, _qz in QUIZZES.items():
+    _papers = [{"name": "A 卷·基础巩固", "questions": _qz["questions"]}]
+    if _cid in QUIZZES_B:
+        assert len(QUIZZES_B[_cid]) == len(_qz["questions"]), _cid
+        _papers.append({"name": "B 卷·实战拔高", "questions": QUIZZES_B[_cid]})
+    PAPERS[_cid] = _papers
 
 app.teardown_appcontext(db.close_db)
 
@@ -48,9 +58,12 @@ def chapter_nav(cid):
 
 @app.route("/")
 def home():
+    uid = current_uid()
+    last_cid = db.get_last_chapter(uid) if uid else None
     return render_template(
         "index.html", volumes=VOLUMES, total=len(ALL_CHAPTERS),
-        records=user_records()
+        records=user_records(), last_ch=CHAPTER_BY_ID.get(last_cid),
+        chapters_all=ALL_CHAPTERS
     )
 
 
@@ -76,6 +89,7 @@ def chapter(cid):
     return render_template(
         "chapter.html", ch=ch, vol=vol, prev_ch=prev_ch, next_ch=next_ch,
         has_quiz=bool(quiz), total_q=len(quiz["questions"]) if quiz else 0,
+        paper_count=len(PAPERS[cid]) if quiz else 0,
         quiz_tip=quiz["tip"] if quiz else "", my_quiz=my_quiz
     )
 
@@ -87,7 +101,21 @@ def quiz(cid):
     if ch is None or qz is None:
         abort(404)
     vol = next(v for v in VOLUMES if v["key"] == ch["id"][:2])
-    return render_template("quiz.html", ch=ch, vol=vol, qz=qz, pass_line=PASS_LINE)
+    # 选卷：指定 ?p=n 优先；否则按交卷次数轮换（登录用户），游客默认 A 卷
+    papers = PAPERS[cid]
+    uid = current_uid()
+    rec = db.get_progress(uid, cid) if uid else None
+    attempts = rec["attempts"] if rec else 0
+    n = len(papers)
+    p_arg = request.args.get("p")
+    if p_arg is not None and p_arg.isdigit():
+        idx = int(p_arg) % n
+    else:
+        idx = attempts % n
+    qz_paper = {"tip": qz["tip"], "questions": papers[idx]["questions"]}
+    return render_template("quiz.html", ch=ch, vol=vol, qz=qz_paper,
+                           pass_line=PASS_LINE, papers=papers, paper_idx=idx,
+                           attempts=attempts)
 
 
 # ---------- 用户：注册 / 登录 / 登出 ----------
@@ -153,6 +181,19 @@ def api_quiz():
         return jsonify({"ok": False, "error": "参数不合法"}), 400
     rec = db.upsert_progress(uid, cid, correct, total, correct >= PASS_LINE)
     return jsonify({"ok": True, "record": rec})
+
+
+@app.route("/api/visit", methods=["POST"])
+def api_visit():
+    """记录最近学习的章节（首页“继续学习”），仅登录用户。"""
+    uid = current_uid()
+    if uid is None:
+        return jsonify({"ok": False, "error": "请先登录"}), 401
+    cid = (request.get_json(silent=True) or {}).get("cid")
+    if cid not in CHAPTER_BY_ID:
+        return jsonify({"ok": False, "error": "参数不合法"}), 400
+    db.set_last_chapter(uid, cid)
+    return jsonify({"ok": True})
 
 
 @app.errorhandler(404)
