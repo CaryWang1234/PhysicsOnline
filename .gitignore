@@ -1,0 +1,24 @@
+# Python 缓存
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 环境与依赖
+.env
+.venv/
+venv/
+
+# 数据库
+*.db
+*.sqlite
+*.sqlite3
+
+# 临时文件
+tmp_check.py
+tmp/
+*.tmp
+
+# 编辑器
+.vscode/
+.idea/
+.DS_Store
