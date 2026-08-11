@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}{{ vol.name }} · PhysicsOnline{% endblock %}
+
+{% block content %}
+<nav class="crumbs">
+  <a href="/">首页</a> <span class="crumb-sep">›</span> <span>{{ vol.name }}</span>
+</nav>
+
+<section class="volume-hero paper-card">
+  <h1>{{ vol.icon }} {{ vol.name }}</h1>
+  <p class="volume-hero-sub">共 {{ vol.chapters|length }} 章，按顺序学习，也可以直接跳到你感兴趣的那一章～每章测验答对 8/10 即学会。</p>
+  <div class="progress-bar small"><div class="progress-fill" id="volBar" style="width:0%"></div></div>
+</section>
+
+<section class="chapter-list">
+  {% for c in vol.chapters %}
+  <a class="chapter-card paper-card" href="/chapter/{{ c.id }}">
+    <div class="chapter-icon">{{ c.icon }}</div>
+    <div class="chapter-info">
+      <h2>{% if c.label %}{{ c.label }}{% else %}第{{ ['一','二','三','四','五','六','七','八','九','十','十一','十二'][c.num - 1] }}章{% endif %} · {{ c.title }}</h2>
+      <p>{{ c.intro }}</p>
+      <p class="chapter-meta">📝 {{ c.blocks|length }} 个知识块 · 🧪 {{ c.animation.title }}</p>
+    </div>
+    <div class="chapter-state">
+      <span class="quiz-score" data-quiz-score="{{ c.id }}" hidden></span>
+      <span class="done-badge" data-done-badge="{{ c.id }}" hidden>✔ 已学会</span>
+      <span class="arrow">→</span>
+    </div>
+  </a>
+  {% endfor %}
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function () {
+    var records = {{ records|tojson }};   // 登录用户的服务端成绩，游客为 null
+    function recOf(id) { return records ? records[id] : PO.getQuiz(id); }
+    function isPassed(id) { var r = recOf(id); return !!(r && r.pass); }
+
+    var ids = [{% for c in vol.chapters %}'{{ c.id }}'{% if not loop.last %},{% endif %}{% endfor %}];
+    ids.forEach(function (id) {
+      var badge = document.querySelector('[data-done-badge="' + id + '"]');
+      var score = document.querySelector('[data-quiz-score="' + id + '"]');
+      var r = recOf(id);
+      if (r && score) {
+        score.hidden = false;
+        score.textContent = '测验 ' + r.correct + '/' + r.total;
+        score.classList.add(r.pass ? 'score-pass' : 'score-fail');
+      }
+      if (badge && isPassed(id)) badge.hidden = false;
+    });
+    var n = ids.filter(isPassed).length;
+    document.getElementById('volBar').style.width = Math.round(n / ids.length * 100) + '%';
+  })();
+</script>
+{% endblock %}

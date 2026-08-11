@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}{{ ch.title }} · PhysicsOnline{% endblock %}
+
+{% block content %}
+<nav class="crumbs">
+  <a href="/">首页</a> <span class="crumb-sep">›</span>
+  <a href="/volume/{{ vol.key }}">{{ vol.name }}</a> <span class="crumb-sep">›</span>
+  <span>{{ ch.title }}</span>
+</nav>
+
+<section class="chapter-hero paper-card">
+  <div class="chapter-hero-icon">{{ ch.icon }}</div>
+  <div>
+    <h1>{{ ch.title }}</h1>
+    <p class="chapter-hero-intro">{{ ch.intro }}</p>
+  </div>
+</section>
+
+<!-- ① 讲义：知识块 -->
+<section class="lecture">
+  <h2 class="section-title">📝 讲义 · 知识块</h2>
+  {% for block in ch.blocks %}
+  <article class="block-card paper-card">
+    <h3><span class="block-no">{{ loop.index }}</span>{{ block.title }}</h3>
+    <ul class="point-list">
+      {% for p in block.points %}<li>{{ p }}</li>{% endfor %}
+    </ul>
+    {% if block.tip %}
+    <p class="tip-box">💡 {{ block.tip }}</p>
+    {% endif %}
+  </article>
+  {% endfor %}
+</section>
+
+<!-- ② 实验模拟动画 -->
+<section class="lab">
+  <h2 class="section-title">🧪 实验模拟 · {{ ch.animation.title }}</h2>
+  <div class="anim-card">
+    <p class="anim-hint">👉 {{ ch.animation.hint }}</p>
+    <div class="anim-stage" id="animStage" data-anim="{{ ch.animation.key }}"></div>
+  </div>
+</section>
+
+<!-- ③ 考试辅助：考点速记 + 应试技巧 -->
+<section class="exam-help">
+  <h2 class="section-title">🎒 考试辅助 · 考前看一看</h2>
+  <div class="exam-grid">
+    <div class="exam-card paper-card">
+      <h3>📌 考点速记</h3>
+      <ul class="point-list">
+        {% for f in ch.exam.focus %}<li>{{ f }}</li>{% endfor %}
+      </ul>
+    </div>
+    {% if has_quiz %}
+    <div class="exam-card paper-card">
+      <h3>💡 应试技巧</h3>
+      <p class="tip-box">{{ quiz_tip }}</p>
+      <p class="exam-note">共 {{ total_q }} 道常考题，答对 <strong>8 道及以上</strong>即判定学会本章。</p>
+    </div>
+    {% endif %}
+  </div>
+</section>
+
+<!-- ④ 小结 + 学会判定 -->
+<section class="wrap-up">
+  <h2 class="section-title">🎯 本章小结</h2>
+  <div class="summary-card paper-card">
+    <ul class="summary-list">
+      {% for s in ch.summary %}<li>{{ s }}</li>{% endfor %}
+    </ul>
+    {% if has_quiz %}
+    <div class="mastery-box">
+      <a class="btn-done btn-quiz" href="/chapter/{{ ch.id }}/quiz">📝 挑战常考题测验（{{ total_q }} 题）</a>
+      <span class="quiz-status" id="quizStatus"></span>
+    </div>
+    {% endif %}
+  </div>
+</section>
+
+<!-- ⑤ 上一节 / 下一节 -->
+<nav class="chapter-nav">
+  {% if prev_ch %}
+  <a class="nav-btn prev paper-card" href="/chapter/{{ prev_ch.id }}">
+    <span class="nav-dir">← 上一节</span>
+    <span class="nav-name">{{ prev_ch.icon }} {{ prev_ch.title }}</span>
+  </a>
+  {% else %}<span></span>{% endif %}
+
+  {% if next_ch %}
+  <a class="nav-btn next paper-card" id="btnNext" href="/chapter/{{ next_ch.id }}">
+    <span class="nav-dir">下一节 →</span>
+    <span class="nav-name">{{ next_ch.icon }} {{ next_ch.title }}</span>
+  </a>
+  {% else %}
+  <a class="nav-btn next paper-card" href="/">🎉 全部学完，回首页看看进度</a>
+  {% endif %}
+</nav>
+{% endblock %}
+
+{% block scripts %}
+<script>window.AnimMeta = {{ ch.animation|tojson }};</script>
+<script src="{{ url_for('static', filename='js/anim_loader.js') }}"></script>
+<script>
+  (function () {
+    var cid = '{{ ch.id }}';
+    var st = document.getElementById('quizStatus');
+    if (!st) return;
+    // 登录用户优先用服务端成绩，游客用 localStorage
+    var r = {{ my_quiz|tojson }} || PO.getQuiz(cid);
+    if (!r) {
+      st.textContent = '⬜ 尚未测验：学会 = 10 道常考题答对 8 道及以上';
+    } else if (r.pass) {
+      st.textContent = '🌟 本章已学会（最好成绩 ' + r.correct + '/' + r.total + '）';
+      st.classList.add('is-pass');
+    } else {
+      st.textContent = '💪 最好成绩 ' + r.correct + '/' + r.total + '，还差 ' + (8 - r.correct) + ' 道达标，复习后再战！';
+      st.classList.add('is-fail');
+    }
+  })();
+</script>
+{% endblock %}

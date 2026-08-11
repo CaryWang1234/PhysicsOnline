@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% block title %}{{ ch.title }} · 常考题测验 · PhysicsOnline{% endblock %}
+
+{% block content %}
+<nav class="crumbs">
+  <a href="/">首页</a> <span class="crumb-sep">›</span>
+  <a href="/volume/{{ vol.key }}">{{ vol.name }}</a> <span class="crumb-sep">›</span>
+  <a href="/chapter/{{ ch.id }}">{{ ch.title }}</a> <span class="crumb-sep">›</span>
+  <span>常考题测验</span>
+</nav>
+
+<section class="quiz-hero paper-card">
+  <h1>📝 {{ ch.icon }} {{ ch.title }} · 常考题测验</h1>
+  <p class="quiz-rule">共 <strong>{{ qz.questions|length }}</strong> 道选择题，答对 <strong>{{ pass_line }}</strong> 道及以上即判定 <span class="pass-tag">学会本章</span>。</p>
+  <p class="quiz-tip">💡 应试技巧：{{ qz.tip }}</p>
+
+  <details class="focus-card">
+    <summary>📌 考前背一背：本章考点速记（点击展开）</summary>
+    <ul>
+      {% for f in ch.exam.focus %}<li>{{ f }}</li>{% endfor %}
+    </ul>
+  </details>
+</section>
+
+<form id="quizForm" class="quiz-list">
+  {% for q in qz.questions %}
+  <div class="quiz-item paper-card" data-qi="{{ loop.index0 }}" data-answer="{{ q.a }}">
+    <h3><span class="block-no">{{ loop.index }}</span>{{ q.q }}</h3>
+    {% set qi = loop.index0 %}
+    <div class="quiz-options">
+      {% for opt in q.o %}
+      <label class="quiz-opt">
+        <input type="radio" name="q{{ qi }}" value="{{ loop.index0 }}" required>
+        <span class="opt-letter">{{ ['A','B','C','D'][loop.index0] }}</span>
+        <span class="opt-text">{{ opt }}</span>
+      </label>
+      {% endfor %}
+    </div>
+    <p class="quiz-explain" hidden>💬 解析：{{ q.e }}</p>
+  </div>
+  {% endfor %}
+</form>
+
+<div class="quiz-actions">
+  <button type="button" class="btn-done" id="btnSubmitQuiz">✅ 交卷批改</button>
+</div>
+
+<section class="quiz-result paper-card" id="quizResult" hidden>
+  <h2 id="resultTitle"></h2>
+  <p id="resultDetail"></p>
+  <p>
+    <button type="button" class="btn-done" id="btnRetry">🔁 重新挑战</button>
+    <a class="btn-done btn-back" href="/chapter/{{ ch.id }}">↩ 回到讲义复习</a>
+  </p>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var cid = '{{ ch.id }}';
+  var total = {{ qz.questions|length }};
+  var passLine = {{ pass_line }};
+  var items = Array.prototype.slice.call(document.querySelectorAll('.quiz-item'));
+
+  // 保存成绩：登录用户写服务端，游客写 localStorage
+  function saveScore(correct) {
+    if (window.CURRENT_USER) {
+      return fetch('/api/quiz', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cid: cid, correct: correct, total: total })
+      }).then(function (r) { return r.json(); })
+        .then(function (j) { return (j && j.ok && j.record) ? j.record : { correct: correct, total: total }; })
+        .catch(function () { return { correct: correct, total: total }; });
+    }
+    return Promise.resolve(PO.recordQuiz(cid, correct, total));
+  }
+
+  document.getElementById('btnSubmitQuiz').addEventListener('click', function () {
+    var correct = 0, unanswered = 0;
+    items.forEach(function (item, i) {
+      var sel = item.querySelector('input[name="q' + i + '"]:checked');
+      if (!sel) { unanswered++; return; }
+      var right = parseInt(item.getAttribute('data-answer'), 10);
+      var chosen = parseInt(sel.value, 10);
+      var opts = item.querySelectorAll('.quiz-opt');
+      opts[right].classList.add('is-right');
+      if (chosen === right) { correct++; } else { opts[chosen].classList.add('is-wrong'); }
+      item.querySelector('.quiz-explain').hidden = false;
+    });
+
+    if (unanswered > 0) {
+      var go = window.confirm('还有 ' + unanswered + ' 道题没有作答，确定要交卷吗？');
+      if (!go) {
+        items.forEach(function (item) {
+          item.querySelectorAll('.quiz-opt').forEach(function (o) { o.classList.remove('is-right', 'is-wrong'); });
+          item.querySelector('.quiz-explain').hidden = true;
+        });
+        return;
+      }
+    }
+
+    // 交卷后锁定选项
+    items.forEach(function (item) {
+      item.querySelectorAll('input').forEach(function (inp) { inp.disabled = true; });
+    });
+
+    var result = document.getElementById('quizResult');
+    var title = document.getElementById('resultTitle');
+    var detail = document.getElementById('resultDetail');
+    var btn = document.getElementById('btnSubmitQuiz');
+    btn.disabled = true;
+    saveScore(correct).then(function (rec) {
+      var extra = window.CURRENT_USER ? '，已保存到你的账号' : '（未登录，成绩仅存在本浏览器）';
+      btn.textContent = '已交卷（历史最好 ' + rec.correct + '/' + rec.total + extra + '）';
+    });
+    if (correct >= passLine) {
+      title.textContent = '🎉 ' + correct + ' / ' + total + '，恭喜学会本章！';
+      detail.textContent = '错题也值得看一遍解析，巩固之后去下一章吧。';
+      result.classList.add('result-pass');
+    } else {
+      title.textContent = '💪 ' + correct + ' / ' + total + '，还差 ' + (passLine - correct) + ' 道就达标啦';
+      detail.textContent = '建议回到讲义重读知识块，再看看上方考点速记，然后重新挑战。';
+      result.classList.remove('result-pass');
+    }
+    result.hidden = false;
+    result.scrollIntoView({ behavior: 'smooth' });
+  });
+
+  document.getElementById('btnRetry').addEventListener('click', function () { window.location.reload(); });
+})();
+</script>
+{% endblock %}

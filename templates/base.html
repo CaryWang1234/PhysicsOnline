@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}PhysicsOnline · 初中物理乐园{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="/">
+        <span class="brand-icon">🔬</span>
+        <span class="brand-name">PhysicsOnline</span>
+        <span class="brand-sub">初中物理乐园</span>
+      </a>
+      <nav class="top-nav">
+        <a href="/">首页</a>
+        {% for v in volumes %}
+        <a href="/volume/{{ v.key }}">{{ v.name }}</a>
+        {% endfor %}
+        {% if session.get('username') %}
+        <span class="user-chip">👤 {{ session.get('username') }}</span>
+        <a href="/logout">退出</a>
+        {% else %}
+        <a href="/login">登录</a>
+        <a href="/register" class="nav-reg">注册</a>
+        {% endif %}
+      </nav>
+    </div>
+  </header>
+
+  <main class="container page-main">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>📖 PhysicsOnline · 依据沪科版课标知识点编写，供学习交流使用</p>
+      <p class="footer-tip">{% if session.get('username') %}成绩已保存在你的账号里，换设备登录即可接着学～{% else %}登录账号后成绩跨设备保存；不登录时只存在当前浏览器里{% endif %}</p>
+    </div>
+  </footer>
+
+  <script>window.CURRENT_USER = {{ session.get('username')|tojson }};</script>
+  <script src="{{ url_for('static', filename='js/progress.js') }}"></script>
+  <script>
+    // 登录/注册后，把游客时期存在 localStorage 的成绩合并进账号（取每章最好成绩）
+    (function () {
+      if (!window.CURRENT_USER) return;
+      var raw;
+      try { raw = localStorage.getItem(PO.KEY); } catch (e) { return; }
+      if (!raw) return;
+      var rec;
+      try { rec = JSON.parse(raw) || {}; } catch (e) { localStorage.removeItem(PO.KEY); return; }
+      var ids = Object.keys(rec);
+      if (!ids.length) { localStorage.removeItem(PO.KEY); return; }
+      var done = 0;
+      ids.forEach(function (cid) {
+        var r = rec[cid] || {};
+        fetch('/api/quiz', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cid: cid, correct: r.correct | 0, total: r.total | 0 })
+        }).catch(function () { /* 单条失败不阻断合并 */ })
+          .finally(function () { if (++done === ids.length) localStorage.removeItem(PO.KEY); });
+      });
+    })();
+  </script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

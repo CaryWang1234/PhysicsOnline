@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}登录 · PhysicsOnline{% endblock %}
+
+{% block content %}
+<section class="auth-card paper-card">
+  <h1>👋 欢迎回来</h1>
+  <p class="auth-sub">登录后，你的测验成绩会保存在你的账号里，换设备也能接着学。</p>
+
+  {% if error %}<p class="auth-error">⚠ {{ error }}</p>{% endif %}
+
+  <form method="post" class="auth-form">
+    <label>用户名
+      <input type="text" name="username" maxlength="16" required autofocus placeholder="注册时用的用户名">
+    </label>
+    <label>密码
+      <input type="password" name="password" required placeholder="你的密码">
+    </label>
+    <button type="submit" class="btn-done">🔑 登录</button>
+  </form>
+
+  <p class="auth-alt">还没有账号？<a href="/register">点这里注册一个（10 秒搞定）</a></p>
+  <p class="auth-note">不登录也能浏览讲义和动画，只是成绩只保存在当前浏览器里。</p>
+</section>
+{% endblock %}

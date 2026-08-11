@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}PhysicsOnline · 首页{% endblock %}
+
+{% block content %}
+<section class="hero paper-card">
+  <h1 class="hero-title">欢迎来到初中物理乐园 <span class="wave">👋</span></h1>
+  <p class="hero-desc">
+    按教材章节学讲义 → 动手玩实验模拟动画 → 背考点速记 → 常考题测验（≥ 8/10 即学会）。<br>
+    覆盖沪科版（五四学制）八年级上册 + 下册全部 <strong>{{ total }}</strong> 个章节，免登录，随时学！
+  </p>
+
+  <div class="progress-block">
+    <div class="progress-label">
+      <span>📈 我的学会进度</span>
+      <span id="totalProgressText">0 / {{ total }} 章</span>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="totalProgressBar" style="width:0%"></div></div>
+  </div>
+</section>
+
+<section class="volume-grid">
+  {% for v in volumes %}
+  <a class="volume-card paper-card" href="/volume/{{ v.key }}">
+    <div class="volume-icon">{{ v.icon }}</div>
+    <div class="volume-info">
+      <h2>{{ v.name }}</h2>
+      <p class="volume-chapters">
+        {% for c in v.chapters %}<span class="mini-chip">{{ c.icon }} {{ c.title }}</span>{% endfor %}
+      </p>
+      <div class="progress-bar small"><div class="progress-fill" data-vol-bar="{{ v.key }}" style="width:0%"></div></div>
+      <p class="volume-progress-text" data-vol-text="{{ v.key }}">已学会 0 / {{ v.chapters|length }} 章</p>
+    </div>
+    <span class="arrow">→</span>
+  </a>
+  {% endfor %}
+</section>
+
+<section class="how-to paper-card">
+  <h2>🧭 怎样使用本站</h2>
+  <ol class="how-list">
+    <li><span class="step-num">1</span>选一个章节，读懂讲义里的知识块</li>
+    <li><span class="step-num">2</span>玩一玩本章的实验模拟动画，动手验证规律</li>
+    <li><span class="step-num">3</span>看考试辅助：考点速记 + 应试技巧</li>
+    <li><span class="step-num">4</span>做 10 道常考题测验，答对 8 道及以上即“学会”！</li>
+  </ol>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // 首页进度渲染（登录用户用服务端成绩，游客用 localStorage）
+  (function () {
+    var total = {{ total }};
+    var records = {{ records|tojson }};
+    function recOf(id) { return records ? records[id] : PO.getQuiz(id); }
+    function isPassed(id) { var r = recOf(id); return !!(r && r.pass); }
+
+    var volData = {
+      {% for v in volumes %}
+      '{{ v.key }}': { ids: [{% for c in v.chapters %}'{{ c.id }}'{% if not loop.last %},{% endif %}{% endfor %}] }{% if not loop.last %},{% endif %}
+      {% endfor %}
+    };
+    var ids = [];
+    Object.keys(volData).forEach(function (k) { ids = ids.concat(volData[k].ids); });
+    var done = ids.filter(isPassed);
+    var pct = total ? Math.round(done.length / total * 100) : 0;
+    document.getElementById('totalProgressBar').style.width = pct + '%';
+    document.getElementById('totalProgressText').textContent = done.length + ' / ' + total + ' 章';
+
+    Object.keys(volData).forEach(function (key) {
+      var vIds = volData[key].ids;
+      var n = vIds.filter(isPassed).length;
+      var bar = document.querySelector('[data-vol-bar="' + key + '"]');
+      var text = document.querySelector('[data-vol-text="' + key + '"]');
+      if (bar) bar.style.width = Math.round(n / vIds.length * 100) + '%';
+      if (text) text.textContent = '已学会 ' + n + ' / ' + vIds.length + ' 章';
+    });
+  })();
+</script>
+{% endblock %}
