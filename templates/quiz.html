@@ -63,9 +63,22 @@
     <a class="btn-done btn-back" href="/chapter/{{ ch.id }}">↩ 回到讲义复习</a>
   </p>
 </section>
+
+<!-- XP 与成就 Toast -->
+<div class="toast-xp" id="xpToast"></div>
+<div class="toast-achieve" id="achToast"><span class="toast-ach-icon"></span><span class="toast-ach-text"></span></div>
 {% endblock %}
 
 {% block scripts %}
+<script>
+function showToast(text, icon) {
+  var el = document.getElementById('achToast');
+  el.querySelector('.toast-ach-icon').textContent = icon || '🏅';
+  el.querySelector('.toast-ach-text').textContent = text;
+  el.classList.add('show');
+  setTimeout(function () { el.classList.remove('show'); }, 3000);
+}
+</script>
 <script>
 (function () {
   var cid = '{{ ch.id }}';
@@ -81,8 +94,15 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cid: cid, correct: correct, total: total })
       }).then(function (r) { return r.json(); })
-        .then(function (j) { return (j && j.ok && j.record) ? j.record : { correct: correct, total: total }; })
-        .catch(function () { return { correct: correct, total: total }; });
+        .then(function (j) {
+          if (j && j.ok && j.record) {
+            j.record.xp_gained = j.xp_gained || 0;
+            j.record.new_achievements = j.new_achievements || [];
+            return j.record;
+          }
+          return { correct: correct, total: total, xp_gained: 0, new_achievements: [] };
+        })
+        .catch(function () { return { correct: correct, total: total, xp_gained: 0, new_achievements: [] }; });
     }
     return Promise.resolve(PO.recordQuiz(cid, correct, total));
   }
@@ -124,6 +144,23 @@
     saveScore(correct).then(function (rec) {
       var extra = window.CURRENT_USER ? '，已保存到你的账号' : '（未登录，成绩仅存在本浏览器）';
       btn.textContent = '已交卷（历史最好 ' + rec.correct + '/' + rec.total + extra + '）';
+      // 显示 XP 获得
+      if (rec.xp_gained) {
+        var xpEl = document.getElementById('xpToast');
+        if (xpEl) {
+          xpEl.textContent = '+' + rec.xp_gained + ' XP';
+          xpEl.classList.add('show');
+          setTimeout(function () { xpEl.classList.remove('show'); }, 2500);
+        }
+      }
+      // 成就解锁 Toast
+      if (rec.new_achievements && rec.new_achievements.length) {
+        var ACH_ICONS = { first_pass:'✨', perfect_score:'🏆', all_pass:'🎯', max_level:'🚀' };
+        var ACH_NAMES = { first_pass:'初露锋芒', perfect_score:'满分制霸', all_pass:'全科通关', max_level:'物理大师' };
+        rec.new_achievements.forEach(function (aid, i) {
+          setTimeout(function () { showToast('🏅 成就解锁：' + (ACH_NAMES[aid] || aid), (ACH_ICONS[aid] || '🏅')); }, 800 + i * 600);
+        });
+      }
     });
     if (correct >= passLine) {
       title.textContent = '🎉 ' + correct + ' / ' + total + '，恭喜学会本章！';

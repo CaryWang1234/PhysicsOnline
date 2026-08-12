@@ -474,3 +474,60 @@ body {
   .anim-stage { height: 360px; }
   .continue-title { font-size: 13px; }
 }
+
+/* ============================================
+   XP / 等级 / 成就 / Toast 组件
+   ============================================ */
+
+/* --- 统计面板（首页） --- */
+.stats-panel { margin-bottom: 26px; padding: 20px 24px; }
+.stats-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 10px; }
+.level-badge {
+  background: linear-gradient(135deg, var(--green-deep), var(--green));
+  color: #fff; font-weight: 700; font-size: 15px;
+  padding: 5px 16px; border-radius: 999px;
+}
+.streak-badge {
+  background: #fff3e0; color: #e65100; font-size: 14px; font-weight: 600;
+  padding: 4px 14px; border-radius: 999px; border: 1px solid #ffe0b2;
+}
+.xp-bar-wrap { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.xp-bar { flex: 1; height: 12px; background: #edeadf; border-radius: 999px; overflow: hidden; border: 1px solid var(--line); }
+.xp-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, #f2b356, #ff9800); transition: width .5s ease; }
+.xp-text { font-size: 13px; color: var(--ink-soft); white-space: nowrap; }
+
+/* --- 成就徽章 --- */
+.ach-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 8px; }
+.ach-grid.ach-locked { opacity: .5; }
+.ach-item {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--paper-green); border-radius: 10px; padding: 6px 12px;
+  font-size: 13.5px; color: var(--ink); transition: transform .15s;
+}
+.ach-item.unlocked { background: #fff8e1; border: 1px solid #ffe082; }
+.ach-item.unlocked:hover { transform: scale(1.05); }
+.ach-icon { font-size: 17px; }
+.ach-name { font-weight: 600; }
+
+/* --- XP 浮动提示 --- */
+.toast-xp {
+  position: fixed; top: 70px; right: 24px; z-index: 999;
+  background: linear-gradient(135deg, #ff9800, #f2b356); color: #fff;
+  font-weight: 700; font-size: 16px; padding: 10px 22px;
+  border-radius: 12px; box-shadow: 0 4px 16px rgba(242,179,86,.4);
+  opacity: 0; transform: translateY(-10px) scale(.9);
+  transition: opacity .3s, transform .3s; pointer-events: none;
+}
+.toast-xp.show { opacity: 1; transform: translateY(0) scale(1); }
+
+/* --- 成就解锁 Toast --- */
+.toast-achieve {
+  position: fixed; top: 70px; left: 50%; transform: translateX(-50%) translateY(-16px) scale(.92);
+  z-index: 1000; display: flex; align-items: center; gap: 10px;
+  background: #fff; border: 2px solid var(--accent); border-radius: 14px;
+  padding: 12px 24px; box-shadow: 0 8px 24px rgba(0,0,0,.12);
+  opacity: 0; transition: opacity .35s, transform .35s; pointer-events: none;
+}
+.toast-achieve.show { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+.toast-ach-icon { font-size: 26px; }
+.toast-ach-text { font-size: 15px; font-weight: 700; color: var(--ink); }

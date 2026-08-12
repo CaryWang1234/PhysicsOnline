@@ -120,21 +120,50 @@
   <a class="nav-btn next paper-card" href="/">🎉 全部学完，回首页看看进度</a>
   {% endif %}
 </nav>
+
+<!-- XP Toast -->
+<div class="toast-xp" id="xpToast"></div>
+<div class="toast-achieve" id="achToast"><span class="toast-ach-icon"></span><span class="toast-ach-text"></span></div>
 {% endblock %}
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/anim_loader.js') }}"></script>
 <script>
+function showToast(text, icon) {
+  var el = document.getElementById('achToast');
+  el.querySelector('.toast-ach-icon').textContent = icon || '🏅';
+  el.querySelector('.toast-ach-text').textContent = text;
+  el.classList.add('show');
+  setTimeout(function () { el.classList.remove('show'); }, 3000);
+}
+</script>
+<script>
   (function () {
     var cid = '{{ ch.id }}';
 
-    // 记录最近学习章节：登录用户写服务端，游客写 localStorage（首页“继续学习”用）
+    // 记录最近学习章节 + XP/成就
     if (window.CURRENT_USER) {
       fetch('/api/visit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cid: cid })
-      }).catch(function () {});
+      }).then(function (r) { return r.json(); })
+        .then(function (j) {
+          if (!j || !j.ok) return;
+          if (j.xp_gained) {
+            var xpEl = document.getElementById('xpToast');
+            xpEl.textContent = '+' + j.xp_gained + ' XP';
+            xpEl.classList.add('show');
+            setTimeout(function () { xpEl.classList.remove('show'); }, 2500);
+          }
+          if (j.new_achievements && j.new_achievements.length) {
+            var ACH = { first_read:['初来乍到','📖'], streak_7:['七日坚持','🔥'] };
+            j.new_achievements.forEach(function (aid, i) {
+              var info = ACH[aid] || [aid, '🏅'];
+              setTimeout(function () { showToast('成就解锁：' + info[0], info[1]); }, 800 + i * 600);
+            });
+          }
+        }).catch(function () {});
     } else {
       try { localStorage.setItem('po_last_chapter_v1', cid); } catch (e) {}
     }

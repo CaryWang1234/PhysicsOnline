@@ -17,6 +17,39 @@ app.secret_key = "physics-online-dev-key-2026"
 
 PASS_LINE = 8          # 学会判定：10 题答对 8 道及以上
 
+# ---------- XP / 等级 / 成就配置 ----------
+XP_VISIT = 5
+XP_PASS = 20
+XP_PERFECT_BONUS = 10
+XP_STREAK_BONUS = 2
+
+LEVELS = [
+    (0, "物理探索者"), (60, "力学学徒"), (150, "光学研究员"),
+    (280, "热学工程师"), (450, "电磁学者"), (660, "物理大师"),
+]
+
+ACHIEVEMENTS = {
+    "first_read": {"name": "初来乍到", "desc": "完成第一次章节阅读", "icon": "📖"},
+    "first_pass": {"name": "初露锋芒", "desc": "首次测验及格（8+分）", "icon": "✨"},
+    "perfect_score": {"name": "满分制霸", "desc": "任意测验得到满分", "icon": "🏆"},
+    "streak_7": {"name": "七日坚持", "desc": "连续学习 7 天", "icon": "🔥"},
+    "all_pass": {"name": "全科通关", "desc": "11 章测验全部及格", "icon": "🎯"},
+    "max_level": {"name": "物理大师", "desc": "达到最高等级 Lv6", "icon": "🚀"},
+}
+
+
+def get_level(xp):
+    """返回 (level_number, title, xp_for_next, xp_current_threshold)。"""
+    lv = 1
+    for i, (threshold, title) in enumerate(LEVELS):
+        if xp >= threshold:
+            lv = i + 1
+    if lv >= len(LEVELS):
+        return lv, LEVELS[-1][1], None, LEVELS[-1][0]
+    next_threshold = LEVELS[lv][0]
+    current_threshold = LEVELS[lv - 1][0]
+    return lv, LEVELS[lv - 1][1], next_threshold, current_threshold
+
 # 两册数据汇总
 VOLUMES = [
     {"key": "8a", "name": "八年级上册", "icon": "📘", "chapters": CHAPTERS_8A},
@@ -60,10 +93,21 @@ def chapter_nav(cid):
 def home():
     uid = current_uid()
     last_cid = db.get_last_chapter(uid) if uid else None
+    user_stats = None
+    if uid:
+        stats = db.get_user_stats(uid)
+        lv, title, next_xp, cur_xp = get_level(stats["xp"])
+        user_stats = {
+            "xp": stats["xp"], "level": lv, "title": title,
+            "streak": stats["streak"], "achievements": stats["achievements"],
+            "next_xp": next_xp, "cur_xp": cur_xp,
+            "ach_detail": [ACHIEVEMENTS[a] for a in stats["achievements"] if a in ACHIEVEMENTS],
+        }
     return render_template(
         "index.html", volumes=VOLUMES, total=len(ALL_CHAPTERS),
         records=user_records(), last_ch=CHAPTER_BY_ID.get(last_cid),
-        chapters_all=ALL_CHAPTERS
+        chapters_all=ALL_CHAPTERS, user_stats=user_stats,
+        ach_defs=ACHIEVEMENTS
     )
 
 
@@ -180,12 +224,38 @@ def api_quiz():
     if total != len(qz["questions"]) or not (0 <= correct <= total):
         return jsonify({"ok": False, "error": "参数不合法"}), 400
     rec = db.upsert_progress(uid, cid, correct, total, correct >= PASS_LINE)
-    return jsonify({"ok": True, "record": rec})
+
+    # --- XP 与成就 ---
+    xp_gained = 0
+    new_achs = []
+    if correct >= PASS_LINE:
+        xp_gained += XP_PASS
+        if db.unlock_achievement(uid, "first_pass"):
+            new_achs.append("first_pass")
+    if correct == total:
+        xp_gained += XP_PERFECT_BONUS
+        if db.unlock_achievement(uid, "perfect_score"):
+            new_achs.append("perfect_score")
+    if xp_gained:
+        db.add_xp(uid, xp_gained)
+    # 检查全科通关
+    all_prog = db.get_all_progress(uid)
+    if len(all_prog) == len(ALL_CHAPTERS) and all(r["pass"] for r in all_prog.values()):
+        if db.unlock_achievement(uid, "all_pass"):
+            new_achs.append("all_pass")
+    # 检查最高等级
+    stats = db.get_user_stats(uid)
+    lv, _, _, _ = get_level(stats["xp"])
+    if lv >= len(LEVELS):
+        if db.unlock_achievement(uid, "max_level"):
+            new_achs.append("max_level")
+    return jsonify({"ok": True, "record": rec, "xp_gained": xp_gained,
+                    "new_achievements": new_achs})
 
 
 @app.route("/api/visit", methods=["POST"])
 def api_visit():
-    """记录最近学习的章节（首页“继续学习”），仅登录用户。"""
+    """记录最近章节 + 更新连续天数 + 加 XP + 检查成就。"""
     uid = current_uid()
     if uid is None:
         return jsonify({"ok": False, "error": "请先登录"}), 401
@@ -193,7 +263,23 @@ def api_visit():
     if cid not in CHAPTER_BY_ID:
         return jsonify({"ok": False, "error": "参数不合法"}), 400
     db.set_last_chapter(uid, cid)
-    return jsonify({"ok": True})
+
+    # 更新 streak 并加 XP
+    streak, is_new_day = db.update_streak(uid)
+    xp_gained = 0
+    new_achs = []
+    if is_new_day:
+        xp_gained = XP_VISIT + (streak - 1) * XP_STREAK_BONUS
+        db.add_xp(uid, xp_gained)
+    # 检查成就
+    if db.unlock_achievement(uid, "first_read"):
+        new_achs.append("first_read")
+    if streak >= 7:
+        if db.unlock_achievement(uid, "streak_7"):
+            new_achs.append("streak_7")
+    stats = db.get_user_stats(uid)
+    return jsonify({"ok": True, "xp": stats["xp"], "xp_gained": xp_gained,
+                    "streak": streak, "new_achievements": new_achs})
 
 
 @app.errorhandler(404)

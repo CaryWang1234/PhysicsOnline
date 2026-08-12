@@ -32,6 +32,39 @@
   </div>
 </section>
 
+{% if user_stats %}
+<section class="stats-panel paper-card">
+  <div class="stats-header">
+    <div class="level-badge">Lv{{ user_stats.level }} · {{ user_stats.title }}</div>
+    <div class="streak-badge">🔥 连续 {{ user_stats.streak }} 天</div>
+  </div>
+  <div class="xp-bar-wrap">
+    <div class="xp-bar"><div class="xp-fill" style="width:{{ ((user_stats.xp - user_stats.cur_xp) / (user_stats.next_xp - user_stats.cur_xp) * 100) if user_stats.next_xp else 100 }}%"></div></div>
+    <span class="xp-text">{{ user_stats.xp }} XP{% if user_stats.next_xp %} / {{ user_stats.next_xp }} XP{% endif %}</span>
+  </div>
+  {% if user_stats.ach_detail %}
+  <div class="ach-grid">
+    {% for a in user_stats.ach_detail %}
+    <div class="ach-item unlocked" title="{{ a.desc }}">
+      <span class="ach-icon">{{ a.icon }}</span>
+      <span class="ach-name">{{ a.name }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  <div class="ach-grid ach-locked">
+    {% for aid, a in ach_defs.items() %}
+    {% if aid not in user_stats.achievements %}
+    <div class="ach-item" title="{{ a.desc }}">
+      <span class="ach-icon">🔒</span>
+      <span class="ach-name">{{ a.name }}</span>
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
 <section class="volume-grid">
   {% for v in volumes %}
   <a class="volume-card paper-card" href="/volume/{{ v.key }}">

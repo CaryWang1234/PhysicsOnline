@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 """db.py —— SQLite 用户与学习进度存储（Python 内置 sqlite3，零依赖）
 
-users    用户表：用户名 + werkzeug 加盐哈希密码
+users    用户表：用户名 + werkzeug 加盐哈希密码 + XP/连续天数/成就
 progress 进度表：每用户每章最好成绩（correct/total/pass）
 数据库文件 data.db 与 app.py 同级，首次运行自动建表。
 """
+import json
 import os
 import sqlite3
-from datetime import datetime
+from datetime import datetime, date
 
 from flask import g
 
@@ -29,7 +30,7 @@ def close_db(_e=None):
 
 
 def init_db():
-    """建表（幂等），旧库自动补列（attempts / last_chapter）。"""
+    """建表（幂等），旧库自动补列。"""
     con = sqlite3.connect(DB_PATH)
     con.executescript(
         """
@@ -38,7 +39,11 @@ def init_db():
             username      TEXT NOT NULL UNIQUE,
             password_hash TEXT NOT NULL,
             created_at    TEXT NOT NULL,
-            last_chapter  TEXT
+            last_chapter  TEXT,
+            xp            INTEGER NOT NULL DEFAULT 0,
+            streak        INTEGER NOT NULL DEFAULT 0,
+            last_study_date TEXT,
+            achievements  TEXT NOT NULL DEFAULT '[]'
         );
         CREATE TABLE IF NOT EXISTS progress (
             user_id    INTEGER NOT NULL REFERENCES users(id),
@@ -52,10 +57,18 @@ def init_db():
         );
         """
     )
-    # 旧版本建的表缺新列，按需补齐
+    # 旧版本建的表缺列，按需补齐
     cols_user = {r[1] for r in con.execute("PRAGMA table_info(users)")}
     if "last_chapter" not in cols_user:
         con.execute("ALTER TABLE users ADD COLUMN last_chapter TEXT")
+    if "xp" not in cols_user:
+        con.execute("ALTER TABLE users ADD COLUMN xp INTEGER NOT NULL DEFAULT 0")
+    if "streak" not in cols_user:
+        con.execute("ALTER TABLE users ADD COLUMN streak INTEGER NOT NULL DEFAULT 0")
+    if "last_study_date" not in cols_user:
+        con.execute("ALTER TABLE users ADD COLUMN last_study_date TEXT")
+    if "achievements" not in cols_user:
+        con.execute("ALTER TABLE users ADD COLUMN achievements TEXT NOT NULL DEFAULT '[]'")
     cols_prog = {r[1] for r in con.execute("PRAGMA table_info(progress)")}
     if "attempts" not in cols_prog:
         con.execute("ALTER TABLE progress ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0")
@@ -94,6 +107,79 @@ def get_last_chapter(user_id):
         "SELECT last_chapter FROM users WHERE id = ?", (user_id,)
     ).fetchone()
     return row["last_chapter"] if row else None
+
+
+# ---------- XP / 等级 / 成就 / 连续天数 ----------
+
+def add_xp(user_id, amount):
+    """加经验值，返回新的总 XP。"""
+    db = get_db()
+    db.execute("UPDATE users SET xp = xp + ? WHERE id = ?", (amount, user_id))
+    db.commit()
+    row = db.execute("SELECT xp FROM users WHERE id = ?", (user_id,)).fetchone()
+    return row["xp"] if row else 0
+
+
+def get_user_stats(user_id):
+    """返回 {xp, streak, achievements:list}。"""
+    row = get_db().execute(
+        "SELECT xp, streak, achievements FROM users WHERE id = ?", (user_id,)
+    ).fetchone()
+    if row is None:
+        return {"xp": 0, "streak": 0, "achievements": []}
+    return {
+        "xp": row["xp"],
+        "streak": row["streak"],
+        "achievements": json.loads(row["achievements"] or "[]"),
+    }
+
+
+def update_streak(user_id):
+    """更新连续学习天数，返回 (new_streak, is_new_day)。同一天重复访问不重复计数。"""
+    db = get_db()
+    row = db.execute(
+        "SELECT streak, last_study_date FROM users WHERE id = ?", (user_id,)
+    ).fetchone()
+    today = date.today().isoformat()
+    if row is None:
+        return 0, False
+    last = row["last_study_date"]
+    old_streak = row["streak"]
+    if last == today:
+        return old_streak, False  # 同一天重复访问
+    # 计算是否连续
+    if last:
+        try:
+            last_date = date.fromisoformat(last)
+            diff = (date.today() - last_date).days
+        except ValueError:
+            diff = 99
+    else:
+        diff = 99
+    if diff == 1:
+        new_streak = old_streak + 1
+    else:
+        new_streak = 1
+    db.execute("UPDATE users SET streak = ?, last_study_date = ? WHERE id = ?",
+               (new_streak, today, user_id))
+    db.commit()
+    return new_streak, True
+
+
+def unlock_achievement(user_id, ach_id):
+    """解锁成就（幂等），返回是否新解锁。"""
+    db = get_db()
+    row = db.execute("SELECT achievements FROM users WHERE id = ?", (user_id,)).fetchone()
+    if row is None:
+        return False
+    achs = json.loads(row["achievements"] or "[]")
+    if ach_id in achs:
+        return False
+    achs.append(ach_id)
+    db.execute("UPDATE users SET achievements = ? WHERE id = ?",
+               (json.dumps(achs), user_id))
+    db.commit()
+    return True
 
 
 # ---------- 进度 ----------
